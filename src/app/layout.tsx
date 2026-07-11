@@ -5,6 +5,8 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { SmoothScrolling } from "@/components/smooth-scrolling";
+import { AuthProvider } from "@/context/AuthContext";
+import { HeaderAuth } from "@/components/header-auth";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -23,7 +25,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "VC Portfolio Directory",
+  title: "Founders Directory",
   description: "Browse companies backed by top VCs.",
 };
 
@@ -45,17 +47,19 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <SmoothScrolling>
+          <AuthProvider>
+            <SmoothScrolling>
             <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-sm">
               <div className="container max-w-5xl flex h-16 items-center mx-auto px-4">
                 <div className="mr-4 flex">
                   <Link className="mr-6 flex items-center space-x-2" href="/">
                     <span className="font-serif text-2xl tracking-tight sm:inline-block">
-                      VC Portfolio Directory
+                      Founders Directory
                     </span>
                   </Link>
                 </div>
                 <div className="ml-auto flex items-center space-x-4">
+                  <HeaderAuth />
                   <ThemeToggle />
                 </div>
               </div>
@@ -64,6 +68,7 @@ export default function RootLayout({
               {children}
             </main>
           </SmoothScrolling>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
