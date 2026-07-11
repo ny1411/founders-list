@@ -8,7 +8,7 @@
 - **State Management:** React hooks + URL search params (for shareable filters)
 
 ## 2. Database Schema (Prisma)
-- **Company Model:** `id`, `slug`, `name`, `description`, `logoUrl`, `vcBacker` (Enum/String), `industry`, `employees` (Range/String), `location`, `foundedYear`, `stage`, `seedRound`, `raised` (String), `amountRaised` (Float), `website`, `twitterUrl`, `linkedinUrl`
+- **Company Model:** `id`, `slug`, `name`, `description`, `logoUrl`, `vcBacker` (Enum/String), `industry`, `employees` (Range/String), `location`, `foundedYear`, `stage`, `raised` (String), `amountRaised` (Float), `website`, `twitterUrl`, `linkedinUrl`
 - **Founder Model:** `id`, `companyId`, `name`, `role`, `email`, `phone`, `avatarUrl`, `twitterUrl`, `linkedinUrl`, `bio`
 
 ## 3. Implementation Checklist
@@ -22,8 +22,6 @@
 - [x] Set up a `scripts/scraper` directory.
 - [x] Install scraping dependencies (`playwright`, `cheerio`).
 - [x] Create YCombinator scraper (`yc.ts`).
-- [x] Create a16z scraper (`a16z.ts`).
-- [x] Create 406 Ventures scraper (`406ventures.ts`).
 - [x] Create Gruhas scraper (`gruhas.ts`).
 - [x] Create a unified script to run all scrapers and insert/upsert data into the database.
 
@@ -39,30 +37,32 @@
   - [ ] Sort Dropdown (A-Z default).
 - [ ] **Data Fetching:**
   - [ ] Create a Server Component to fetch companies from the database.
-  - [ ] Implement URL parameter-based filtering (e.g., `?vc=a16z&industry=tech`).
+  - [ ] Implement URL parameter-based filtering (e.g., `?vc=YCombinator&industry=tech`).
+  - [ ] Design the UI mimicking Vercel's component library (using shadcn/ui).
+  - [ ] Support generic mock filters (stage, employees, raised).
 - [ ] **Grid Layout:**
   - [ ] Build a responsive grid of Company Cards.
   - [ ] Each card shows Logo, Name, VC Backer badge, and a short description.
 
-### Phase 5: Company Detail Page
-- [ ] Create dynamic route `src/app/company/[slug]/page.tsx`.
-- [ ] Fetch specific company details and associated founders from the database.
-- [ ] **Page Layout:**
-  - [ ] Header: Logo, Name, Website link, Raised amount, Industry.
-  - [ ] Description Section: Full company description.
-  - [ ] Founders Section: Cards for each founder displaying Name, Email, Phone, Social links.
-  - [ ] Meta Section: Employee count, Seed rounds, VC Backers.
+## Phase 5: Dynamic Details Page (UI & Data)
+- **Goal:** Display individual company deep-dive page.
+- **Tasks:**
+  - [ ] Create `src/app/company/[slug]/page.tsx`.
+  - [ ] Query `Company` and its related `Founder` records by slug.
+  - [ ] Render all details like social links, cap table, and founder bios.
+  - [ ] Use Next.js Server Components for fast load.
 
-### Phase 6: Polish & Performance
-- [ ] Add loading skeletons for the grid and detail pages.
-- [ ] Implement pagination or infinite scroll for the home page.
-- [ ] Add SEO metadata for all pages.
-- [ ] Ensure mobile responsiveness across all filters and grids.
-- [ ] Implement Lenis for smooth scrolling.
+## Phase 6: Polish & Performance
+- **Goal:** Finalize the developer-centric, premium experience.
+- **Tasks:**
+  - [ ] Add dark mode toggle (default to dark).
+  - [ ] Add loading skeletons for the grid and detail pages.
+  - [ ] Implement infinite scroll or pagination.
+  - [ ] Generate standard SEO metadata dynamically.
 
-## 4. UI/UX Flow
-1. **User Landing:** User lands on `/`. They see a masonry/grid layout of all companies, sorted A-Z.
-2. **Filtering:** User clicks on "a16z" in the VC filter. The page instantly updates (using React transitions or Next.js server components) to show only a16z companies.
+# Expected User Flows
+1. **Initial Load:** User visits `/`. They see a large, premium hero section and a grid of companies.
+2. **Filtering:** User clicks on "YCombinator" in the VC filter. The page instantly updates (using React transitions or Next.js server components) to show only YCombinator companies.
 3. **Searching:** User types "health" in the search bar. The grid filters to companies with "health" in their name or description.
 4. **Details:** User clicks on a company card. They are navigated to `/company/doordash`.
 5. **Deep Dive:** On the detail page, the user can read about the company, see the founders, and click their social links or copy their contact info. They can use the browser back button to return to their preserved filtered state.
