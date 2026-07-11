@@ -1,9 +1,10 @@
 import { prisma } from "@/lib/prisma"
 import Link from "next/link"
+import Image from "next/image"
 import { Prisma } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Button, buttonVariants } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { Search } from "lucide-react"
 
 export default async function Home(props: {
@@ -15,19 +16,29 @@ export default async function Home(props: {
   const industry = (searchParams?.industry as string) || "all"
   const sort = (searchParams?.sort as string) || "asc"
 
-  const where: Prisma.CompanyWhereInput = {}
+  const andConditions: Prisma.CompanyWhereInput[] = []
+  
   if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { description: { contains: q } },
-    ]
+    andConditions.push({
+      OR: [
+        { name: { contains: q } },
+        { description: { contains: q } },
+      ]
+    })
   }
   if (vc !== "all") {
-    where.vcBacker = vc
+    andConditions.push({ vcBacker: vc })
   }
   if (industry !== "all") {
-    where.industry = industry
+    andConditions.push({
+      OR: [
+        { industry: industry },
+        { tags: { contains: industry } }
+      ]
+    })
   }
+
+  const where: Prisma.CompanyWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
 
   const companies = await prisma.company.findMany({
     where,
@@ -37,25 +48,40 @@ export default async function Home(props: {
   })
 
   // Dummy filter arrays (In real app, you might group by from DB)
-  const vcs = ["YCombinator", "a16z", "406 Ventures", "Gruhas"]
-  const industries = ["Healthcare", "Tech", "Fintech", "Consumer", "AI", "DevTools"]
+  const vcs = ["YCombinator", "Gruhas"]
+  const industries = [
+    "B2B",
+    "Marketplace",
+    "Travel",
+    "Fintech",
+    "Consumer",
+    "Healthcare",
+    "Education",
+    "Industrials",
+    "Real Estate and Construction",
+    "Government",
+    "Unspecified"
+  ]
 
   return (
     <div className="flex flex-col gap-16 pb-16">
       
       {/* Hero Section */}
-      <section className="flex flex-col gap-6 max-w-3xl pt-12 md:pt-20">
+      <section className="flex flex-col gap-6 max-w-3xl pt-10">
         <h1 className="font-serif text-5xl md:text-7xl leading-tight text-foreground tracking-tight">
           Discover the next generation of startups.
         </h1>
         <p className="text-xl text-secondary-foreground leading-relaxed font-light">
-          A curated directory of high-growth companies backed by the world's most prestigious venture capital firms.
+          A curated directory of high-growth companies backed by the world&apos;s most prestigious venture capital firms.
         </p>
         <div className="flex items-center gap-4 mt-4">
           <div className="flex flex-col">
             <span className="text-3xl font-serif text-foreground">{companies.length}</span>
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Companies</span>
           </div>
+          <Link href="/company/new" className={buttonVariants({ variant: "default", className: "ml-auto" })}>
+            + Submit Company
+          </Link>
         </div>
       </section>
 
@@ -124,9 +150,14 @@ export default async function Home(props: {
               <Link key={company.id} href={`/company/${company.slug}`} className="block h-full group">
                 <Card className="h-full bg-card border border-border rounded-2xl p-6 flex flex-col gap-4 transition-all duration-200 hover:bg-accent/50 hover:border-foreground/20 shadow-none">
                   <div className="flex justify-between items-start gap-4">
-                    <h2 className="text-xl font-medium tracking-tight text-foreground group-hover:text-primary transition-colors">
-                      {company.name}
-                    </h2>
+                    <div className="flex gap-3 items-center">
+                      {company.logoUrl && (
+                        <Image src={company.logoUrl} alt={`${company.name} logo`} width={32} height={32} className="w-8 h-8 rounded-full object-cover border border-border" />
+                      )}
+                      <h2 className="text-xl font-medium tracking-tight text-foreground group-hover:text-primary transition-colors">
+                        {company.name}
+                      </h2>
+                    </div>
                     {company.vcBacker && (
                       <span className="shrink-0 px-2.5 py-1 rounded-full border border-border text-[10px] font-bold uppercase tracking-widest text-secondary-foreground bg-transparent">
                         {company.vcBacker}
@@ -134,17 +165,35 @@ export default async function Home(props: {
                     )}
                   </div>
                   
+                  {company.oneLiner && (
+                    <p className="text-sm font-medium text-foreground">
+                      {company.oneLiner}
+                    </p>
+                  )}
+                  
                   <p className="text-sm text-secondary-foreground line-clamp-2 leading-relaxed flex-1 font-light">
                     {company.description || "No description available."}
                   </p>
                   
-                  {company.industry && (
-                    <div className="pt-2 mt-auto">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                  <div className="pt-2 mt-auto flex flex-wrap gap-2 items-center">
+                    {company.industry && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
                         {company.industry}
                       </span>
-                    </div>
-                  )}
+                    )}
+
+                    {company.location && (
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+                        {company.location}
+                      </span>
+                    )}
+
+                    {company.tags && company.tags.split(',').map((tag, idx) => (
+                      <span key={idx} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-secondary/50 px-2 py-1 rounded-md">
+                        {tag.trim()}
+                      </span>
+                    ))}
+                  </div>
                 </Card>
               </Link>
             ))}
