@@ -15,6 +15,11 @@ export default async function Home(props: {
   const vc = (searchParams?.vc as string) || "all"
   const industry = (searchParams?.industry as string) || "all"
   const sort = (searchParams?.sort as string) || "asc"
+  const pageParam = searchParams?.page as string
+  const page = pageParam ? parseInt(pageParam, 10) : 1
+  const employees = (searchParams?.employees as string) || "all"
+  const stage = (searchParams?.stage as string) || "all"
+  const raised = (searchParams?.raised as string) || "all"
 
   const andConditions: Prisma.CompanyWhereInput[] = []
   
@@ -37,18 +42,37 @@ export default async function Home(props: {
       ]
     })
   }
+  if (employees !== "all") {
+    andConditions.push({ employees })
+  }
+  if (stage !== "all") {
+    andConditions.push({ stage })
+  }
+  if (raised !== "all") {
+    andConditions.push({ raised })
+  }
 
   const where: Prisma.CompanyWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
 
-  const companies = await prisma.company.findMany({
-    where,
-    orderBy: {
-      name: sort === "asc" ? "asc" : "desc",
-    },
-  })
+  const take = 10
+  const skip = (page - 1) * take
+
+  const [companies, totalCount] = await Promise.all([
+    prisma.company.findMany({
+      where,
+      orderBy: {
+        name: sort === "asc" ? "asc" : "desc",
+      },
+      take,
+      skip,
+    }),
+    prisma.company.count({ where })
+  ])
+  
+  const totalPages = Math.ceil(totalCount / take)
 
   // Dummy filter arrays (In real app, you might group by from DB)
-  const vcs = ["YCombinator", "Gruhas"]
+  const vcs = ["YCombinator"]
   const industries = [
     "B2B",
     "Marketplace",
@@ -62,6 +86,31 @@ export default async function Home(props: {
     "Government",
     "Unspecified"
   ]
+  const employeeRanges = ["1-10", "11-50", "51-200", "201-500", "501+"]
+  const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"]
+  const raisedAmounts = ["< $1M", "$1M - $5M", "$5M - $20M", "$20M+"]
+
+  const buildUrl = (overrides: Record<string, string | number>) => {
+    const params = new URLSearchParams()
+    if (q) params.set("q", q)
+    if (vc !== "all") params.set("vc", vc)
+    if (industry !== "all") params.set("industry", industry)
+    if (sort !== "asc") params.set("sort", sort)
+    if (employees !== "all") params.set("employees", employees)
+    if (stage !== "all") params.set("stage", stage)
+    if (raised !== "all") params.set("raised", raised)
+    if (page > 1) params.set("page", page.toString())
+
+    Object.entries(overrides).forEach(([key, value]) => {
+      if (value === "all" || value === 1 || (value === "asc" && key === "sort")) {
+        params.delete(key)
+      } else {
+        params.set(key, value.toString())
+      }
+    })
+
+    return `/?${params.toString()}`
+  }
 
   return (
     <div className="flex flex-col gap-16 pb-16">
@@ -76,7 +125,7 @@ export default async function Home(props: {
         </p>
         <div className="flex items-center gap-4 mt-4">
           <div className="flex flex-col">
-            <span className="text-3xl font-serif text-foreground">{companies.length}</span>
+            <span className="text-3xl font-serif text-foreground">{totalCount}</span>
             <span className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Companies</span>
           </div>
           <Link href="/company/new" className={buttonVariants({ variant: "default", className: "ml-auto" })}>
@@ -93,9 +142,9 @@ export default async function Home(props: {
           <div>
             <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">VC Backer</h3>
             <div className="flex flex-col gap-2.5">
-              <Link href={`/?q=${q}&vc=all&industry=${industry}&sort=${sort}`} className={`text-sm transition-colors ${vc === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>All VCs</Link>
+              <Link href={buildUrl({ vc: 'all', page: 1 })} className={`text-sm transition-colors ${vc === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>All VCs</Link>
               {vcs.map(v => (
-                <Link key={v} href={`/?q=${q}&vc=${v}&industry=${industry}&sort=${sort}`} className={`text-sm transition-colors ${vc === v ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
+                <Link key={v} href={buildUrl({ vc: v, page: 1 })} className={`text-sm transition-colors ${vc === v ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
                   {v}
                 </Link>
               ))}
@@ -105,10 +154,46 @@ export default async function Home(props: {
           <div>
             <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Industry</h3>
             <div className="flex flex-col gap-2.5">
-              <Link href={`/?q=${q}&vc=${vc}&industry=all&sort=${sort}`} className={`text-sm transition-colors ${industry === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>All Industries</Link>
+              <Link href={buildUrl({ industry: 'all', page: 1 })} className={`text-sm transition-colors ${industry === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>All Industries</Link>
               {industries.map(i => (
-                <Link key={i} href={`/?q=${q}&vc=${vc}&industry=${i}&sort=${sort}`} className={`text-sm transition-colors ${industry === i ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
+                <Link key={i} href={buildUrl({ industry: i, page: 1 })} className={`text-sm transition-colors ${industry === i ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
                   {i}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Employees</h3>
+            <div className="flex flex-col gap-2.5">
+              <Link href={buildUrl({ employees: 'all', page: 1 })} className={`text-sm transition-colors ${employees === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>Any Size</Link>
+              {employeeRanges.map(e => (
+                <Link key={e} href={buildUrl({ employees: e, page: 1 })} className={`text-sm transition-colors ${employees === e ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
+                  {e}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Stage</h3>
+            <div className="flex flex-col gap-2.5">
+              <Link href={buildUrl({ stage: 'all', page: 1 })} className={`text-sm transition-colors ${stage === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>Any Stage</Link>
+              {stages.map(s => (
+                <Link key={s} href={buildUrl({ stage: s, page: 1 })} className={`text-sm transition-colors ${stage === s ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
+                  {s}
+                </Link>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Raised</h3>
+            <div className="flex flex-col gap-2.5">
+              <Link href={buildUrl({ raised: 'all', page: 1 })} className={`text-sm transition-colors ${raised === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>Any Amount</Link>
+              {raisedAmounts.map(r => (
+                <Link key={r} href={buildUrl({ raised: r, page: 1 })} className={`text-sm transition-colors ${raised === r ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
+                  {r}
                 </Link>
               ))}
             </div>
@@ -131,14 +216,17 @@ export default async function Home(props: {
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded border border-border bg-card text-[10px] text-muted-foreground font-medium">
                 /
               </div>
-              <input type="hidden" name="vc" value={vc} />
-              <input type="hidden" name="industry" value={industry} />
-              <input type="hidden" name="sort" value={sort} />
+              {vc !== "all" && <input type="hidden" name="vc" value={vc} />}
+              {industry !== "all" && <input type="hidden" name="industry" value={industry} />}
+              {sort !== "asc" && <input type="hidden" name="sort" value={sort} />}
+              {employees !== "all" && <input type="hidden" name="employees" value={employees} />}
+              {stage !== "all" && <input type="hidden" name="stage" value={stage} />}
+              {raised !== "all" && <input type="hidden" name="raised" value={raised} />}
             </form>
 
             <div className="flex items-center gap-3 shrink-0">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Sort</span>
-              <Link href={`/?q=${q}&vc=${vc}&industry=${industry}&sort=${sort === 'asc' ? 'desc' : 'asc'}`} className="text-sm font-medium text-secondary-foreground hover:text-foreground transition-colors">
+              <Link href={buildUrl({ sort: sort === 'asc' ? 'desc' : 'asc' })} className="text-sm font-medium text-secondary-foreground hover:text-foreground transition-colors">
                 {sort === 'asc' ? 'A-Z' : 'Z-A'}
               </Link>
             </div>
@@ -208,6 +296,31 @@ export default async function Home(props: {
               </div>
             )}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-8">
+              <Link 
+                href={page > 1 ? buildUrl({ page: page - 1 }) : '#'} 
+                className={buttonVariants({ variant: "outline", className: `rounded-full ${page <= 1 ? 'pointer-events-none opacity-50' : ''}` })}
+                aria-disabled={page <= 1}
+              >
+                Previous
+              </Link>
+              
+              <span className="text-sm font-medium text-muted-foreground">
+                Page {page} of {totalPages}
+              </span>
+              
+              <Link 
+                href={page < totalPages ? buildUrl({ page: page + 1 }) : '#'} 
+                className={buttonVariants({ variant: "outline", className: `rounded-full ${page >= totalPages ? 'pointer-events-none opacity-50' : ''}` })}
+                aria-disabled={page >= totalPages}
+              >
+                Next
+              </Link>
+            </div>
+          )}
 
         </div>
       </div>
