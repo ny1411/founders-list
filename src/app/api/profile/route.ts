@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { adminAuth } from '@/lib/firebase-admin';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
 
 export async function GET(req: Request) {
   try {
@@ -12,15 +11,14 @@ export async function GET(req: Request) {
     const idToken = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(idToken);
     
-    const user = await prisma.user.findUnique({
-      where: { firebaseId: decodedToken.uid },
-    });
+    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
 
-    if (!user) {
+    if (!userDoc.exists) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ resumeText: user.resumeText });
+    const user = userDoc.data();
+    return NextResponse.json({ resumeText: user?.resumeText || null });
   } catch (error) {
     console.error('Error fetching profile:', error);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -39,12 +37,10 @@ export async function POST(req: Request) {
     
     const { resumeText } = await req.json();
 
-    const user = await prisma.user.update({
-      where: { firebaseId: decodedToken.uid },
-      data: { resumeText },
-    });
+    const userRef = adminDb.collection('users').doc(decodedToken.uid);
+    await userRef.set({ resumeText, updatedAt: new Date().toISOString() }, { merge: true });
 
-    return NextResponse.json({ success: true, resumeText: user.resumeText });
+    return NextResponse.json({ success: true, resumeText });
   } catch (error) {
     console.error('Error updating profile:', error);
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

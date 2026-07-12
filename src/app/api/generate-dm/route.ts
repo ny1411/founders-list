@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { adminAuth } from '@/lib/firebase-admin';
+import { adminAuth, adminDb } from '@/lib/firebase-admin';
 import { GoogleGenAI } from '@google/genai';
+import { Company, Founder, User } from '@/lib/types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -17,37 +17,35 @@ export async function POST(req: Request) {
     
     const { founderId, companySlug } = await req.json();
 
-    const user = await prisma.user.findUnique({
-      where: { firebaseId: decodedToken.uid },
-    });
+    const userDoc = await adminDb.collection('users').doc(decodedToken.uid).get();
 
-    if (!user || !user.resumeText) {
+    if (!userDoc.exists || !userDoc.data()?.resumeText) {
       return NextResponse.json({ error: 'User resume not found' }, { status: 404 });
     }
 
-    const company = await prisma.company.findUnique({
-      where: { slug: companySlug },
-    });
+    const user = { id: userDoc.id, ...userDoc.data() } as User;
 
-    const founder = await prisma.founder.findUnique({
-      where: { id: founderId },
-    });
-
-    if (!company || !founder) {
-      return NextResponse.json({ error: 'Company or founder not found' }, { status: 404 });
+    const companySnapshot = await adminDb.collection('companies').where('slug', '==', companySlug).limit(1).get();
+    if (companySnapshot.empty) {
+      return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
+    const company = companySnapshot.docs[0].data() as Company;
 
-    const existingMessage = await prisma.generatedMessage.findUnique({
-      where: {
-        userId_founderId: {
-          userId: user.id,
-          founderId: founder.id,
-        },
-      },
-    });
+    const founderDoc = await adminDb.collection('founders').doc(founderId).get();
+    if (!founderDoc.exists) {
+      return NextResponse.json({ error: 'Founder not found' }, { status: 404 });
+    }
+    const founder = { id: founderDoc.id, ...founderDoc.data() } as Founder;
 
-    if (existingMessage) {
-      return NextResponse.json({ dmText: existingMessage.content });
+    // Check for existing DM
+    const dmSnapshot = await adminDb.collection('generatedMessages')
+      .where('userId', '==', user.id)
+      .where('founderId', '==', founder.id)
+      .limit(1)
+      .get();
+
+    if (!dmSnapshot.empty) {
+      return NextResponse.json({ dmText: dmSnapshot.docs[0].data().content });
     }
 
     const prompt = `
@@ -100,18 +98,15 @@ Thanks,
 
     if (dmText) {
       try {
-        await prisma.generatedMessage.create({
-          data: {
-            userId: user.id,
-            founderId: founder.id,
-            content: dmText,
-          },
+        await adminDb.collection('generatedMessages').add({
+          userId: user.id,
+          founderId: founder.id,
+          content: dmText,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
-      } catch (dbError: any) {
-        // If it's a unique constraint violation (P2002), another request already created it.
-        if (dbError.code !== 'P2002') {
-          throw dbError;
-        }
+      } catch (dbError) {
+         console.error('Error saving generated message', dbError);
       }
     }
 

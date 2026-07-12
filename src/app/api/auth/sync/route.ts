@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function POST(req: Request) {
   try {
@@ -9,14 +9,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const user = await prisma.user.upsert({
-      where: { firebaseId },
-      update: { email }, // Update email just in case it changes
-      create: {
-        firebaseId,
-        email,
-      },
-    });
+    const userRef = adminDb.collection('users').doc(firebaseId);
+    await userRef.set({
+      firebaseId,
+      email,
+      updatedAt: new Date().toISOString(),
+    }, { merge: true });
+
+    const userDoc = await userRef.get();
+    const user = { id: userDoc.id, ...userDoc.data() };
 
     return NextResponse.json({ user });
   } catch (error) {
