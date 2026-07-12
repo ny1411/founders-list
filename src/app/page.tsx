@@ -1,7 +1,7 @@
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebase-admin"
+import { Company } from "@/lib/types"
 import Link from "next/link"
 import Image from "next/image"
-import { Prisma } from "@prisma/client"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { buttonVariants } from "@/components/ui/button"
@@ -21,50 +21,41 @@ export default async function Home(props: {
   const stage = (searchParams?.stage as string) || "all"
   const raised = (searchParams?.raised as string) || "all"
 
-  const andConditions: Prisma.CompanyWhereInput[] = []
-  
+  const snapshot = await adminDb.collection('companies').get();
+  let allCompanies = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Company));
+
   if (q) {
-    andConditions.push({
-      OR: [
-        { name: { contains: q } },
-        { description: { contains: q } },
-      ]
-    })
+    const lowerQ = q.toLowerCase();
+    allCompanies = allCompanies.filter(c => 
+      c.name.toLowerCase().includes(lowerQ) || 
+      (c.description && c.description.toLowerCase().includes(lowerQ))
+    );
   }
   if (vc !== "all") {
-    andConditions.push({ vcBacker: vc })
+    allCompanies = allCompanies.filter(c => c.vcBacker === vc);
   }
   if (industry !== "all") {
-    andConditions.push({
-      OR: [
-        { industry: industry },
-        { tags: { contains: industry } }
-      ]
-    })
+    allCompanies = allCompanies.filter(c => 
+      c.industry === industry || 
+      (c.tags && c.tags.includes(industry))
+    );
   }
   if (employees !== "all") {
-    andConditions.push({ employees })
+    allCompanies = allCompanies.filter(c => c.employees === employees);
   }
 
-
-  const where: Prisma.CompanyWhereInput = andConditions.length > 0 ? { AND: andConditions } : {}
+  // Sort
+  allCompanies.sort((a, b) => {
+    if (sort === "asc") return a.name.localeCompare(b.name);
+    return b.name.localeCompare(a.name);
+  });
 
   const take = 10
-  const skip = (page - 1) * take
-
-  const [companies, totalCount] = await Promise.all([
-    prisma.company.findMany({
-      where,
-      orderBy: {
-        name: sort === "asc" ? "asc" : "desc",
-      },
-      take,
-      skip,
-    }),
-    prisma.company.count({ where })
-  ])
-  
+  const totalCount = allCompanies.length;
   const totalPages = Math.ceil(totalCount / take)
+  const skip = (page - 1) * take
+  
+  const companies = allCompanies.slice(skip, skip + take)
 
   // Dummy filter arrays (In real app, you might group by from DB)
   const vcs = ["YCombinator"]

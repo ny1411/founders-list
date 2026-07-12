@@ -1,4 +1,5 @@
-import { prisma } from "@/lib/prisma"
+import { adminDb } from "@/lib/firebase-admin"
+import { Company, Founder } from "@/lib/types"
 import { notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
@@ -11,15 +12,15 @@ export async function generateMetadata(
   props: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
   const params = await props.params;
-  const company = await prisma.company.findUnique({
-    where: { slug: params.slug },
-  })
+  const companySnapshot = await adminDb.collection('companies').where('slug', '==', params.slug).limit(1).get();
 
-  if (!company) {
+  if (companySnapshot.empty) {
     return {
       title: "Company Not Found",
     }
   }
+
+  const company = companySnapshot.docs[0].data() as Company;
 
   return {
     title: `${company.name} | Company Name`,
@@ -29,14 +30,19 @@ export async function generateMetadata(
 
 export default async function CompanyPage(props: { params: Promise<{ slug: string }> }) {
   const params = await props.params;
-  const company = await prisma.company.findUnique({
-    where: { slug: params.slug },
-    include: { founders: true },
-  })
+  
+  const companySnapshot = await adminDb.collection('companies').where('slug', '==', params.slug).limit(1).get();
 
-  if (!company) {
+  if (companySnapshot.empty) {
     notFound()
   }
+
+  const companyData = { id: companySnapshot.docs[0].id, ...companySnapshot.docs[0].data() } as Company;
+
+  const foundersSnapshot = await adminDb.collection('founders').where('companyId', '==', companyData.id).get();
+  const founders = foundersSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as Founder));
+
+  const company = { ...companyData, founders };
 
   return (
     <div className="flex flex-col gap-16 pb-16">
