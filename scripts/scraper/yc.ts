@@ -1,7 +1,6 @@
+import 'dotenv/config';
 import { chromium } from 'playwright';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { adminDb } from '../../src/lib/firebase-admin';
 
 export async function scrapeYC() {
   console.log("Starting YCombinator deep scrape...");
@@ -42,9 +41,8 @@ export async function scrapeYC() {
     }
     try {
       // Check if company already exists in DB
-      const existingCompany = await prisma.company.findUnique({
-        where: { slug }
-      });
+      const companySnap = await adminDb.collection('companies').where('slug', '==', slug).limit(1).get();
+      const existingCompany = !companySnap.empty;
       
       if (existingCompany) {
         console.log(`Company ${slug} already exists in DB. Skipping scrape.`);
@@ -163,59 +161,47 @@ export async function scrapeYC() {
       if (!details.name) continue;
 
       // Upsert into DB
-      await prisma.company.upsert({
-        where: { slug: slug },
-        update: {
-          name: details.name,
-          oneLiner: details.oneLiner,
-          description: details.description,
-          website: details.website,
-          twitterUrl: details.twitterUrl,
-          linkedinUrl: details.linkedinUrl,
-          logoUrl: details.logoUrl,
-          foundedYear: details.foundedYear,
-          employees: details.employees,
-          location: details.location,
-          tags: details.tags,
-          ycUrl: details.ycUrl,
-          vcBacker: 'YCombinator',
-          founders: {
-            deleteMany: {}, // Clear existing to prevent duplicates
-            create: details.founders.map((f: { name: string, role: string, linkedinUrl: string | null, twitterUrl: string | null, bio: string }) => ({
-              name: f.name,
-              role: f.role,
-              linkedinUrl: f.linkedinUrl,
-              twitterUrl: f.twitterUrl,
-              bio: f.bio
-            }))
-          }
-        },
-        create: {
-          slug: slug,
-          name: details.name,
-          oneLiner: details.oneLiner,
-          description: details.description,
-          website: details.website,
-          twitterUrl: details.twitterUrl,
-          linkedinUrl: details.linkedinUrl,
-          logoUrl: details.logoUrl,
-          foundedYear: details.foundedYear,
-          employees: details.employees,
-          location: details.location,
-          tags: details.tags,
-          ycUrl: details.ycUrl,
-          vcBacker: 'YCombinator',
-          founders: {
-            create: details.founders.map((f: { name: string, role: string, linkedinUrl: string | null, twitterUrl: string | null, bio: string }) => ({
-              name: f.name,
-              role: f.role,
-              linkedinUrl: f.linkedinUrl,
-              twitterUrl: f.twitterUrl,
-              bio: f.bio
-            }))
-          }
-        }
+      const companyRef = adminDb.collection('companies').doc();
+      const companyId = companyRef.id;
+
+      const batch = adminDb.batch();
+
+      batch.set(companyRef, {
+        id: companyId,
+        slug: slug,
+        name: details.name,
+        oneLiner: details.oneLiner,
+        description: details.description,
+        website: details.website,
+        twitterUrl: details.twitterUrl,
+        linkedinUrl: details.linkedinUrl,
+        logoUrl: details.logoUrl,
+        foundedYear: details.foundedYear,
+        employees: details.employees,
+        location: details.location,
+        tags: details.tags,
+        ycUrl: details.ycUrl,
+        vcBacker: 'YCombinator',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       });
+
+      for (const f of details.founders) {
+        const founderRef = adminDb.collection('founders').doc();
+        batch.set(founderRef, {
+          id: founderRef.id,
+          companyId: companyId,
+          name: f.name,
+          role: f.role,
+          linkedinUrl: f.linkedinUrl,
+          twitterUrl: f.twitterUrl,
+          bio: f.bio,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
+      await batch.commit();
       console.log(`Successfully deep-scraped and saved: ${details.name} with ${details.founders.length} founders.`);
       scrapedCount++;
       
