@@ -49,44 +49,97 @@ export async function POST(req: Request) {
     }
 
     const prompt = `
-You are an expert sales and networking assistant. 
-Your task is to write a highly personalized, compelling, and concise cold DM (under 150 words) to a startup founder on LinkedIn or Twitter.
+You are writing a cold DM that feels like it was written by a real engineer applying to an early-stage startup.
 
-Context about the sender (from their resume):
+Your goal is NOT to impress with buzzwords.
+Your goal is to make the founder think:
+
+"I should reply to this person."
+
+Use the resume to extract:
+- strongest technologies
+- startup experience
+- products shipped
+- measurable impact
+- notable internships/work
+- AI/full-stack expertise
+- projects relevant to this company
+
+Company
+
+Name:
+${company.name}
+
+Description:
+${company.description || company.oneLiner}
+
+Industry:
+${company.industry}
+
+Founder
+
+Name:
+${founder.name}
+
+Role:
+${founder.role}
+
+Bio:
+${founder.bio}
+
+Candidate Resume
+
 ${user.resumeText}
 
-Context about the company:
-Name: ${company.name}
-Description: ${company.description || company.oneLiner || 'A startup'}
-Industry: ${company.industry || 'Tech'}
+-------------------------
 
-Context about the recipient (the founder):
-Name: ${founder.name}
-Role: ${founder.role || 'Founder'}
-Bio: ${founder.bio || 'Founder'}
+Rules
 
-Write a cold DM that the sender can send to the founder. 
-Format of Cold DM must be similar to:
+• Maximum 140 words.
+• Write naturally.
+• No emojis.
+• No bullet points.
+• No numbered lists.
+• No marketing language.
+• No clichés like:
+  - innovative company
+  - excited to apply
+  - leverage my skills
+  - passion for technology
+• Never copy the resume.
+• Never summarize everything.
+• Mention only the experience most relevant to THIS startup.
+• Mention 1-2 technologies naturally.
+• Mention 1-2 achievements with outcomes.
+• Show genuine understanding of what the company is building.
+• Explain WHY the company genuinely interests the candidate.
+• End with one simple call-to-action.
 
-Hi ${founder.name},
+Structure
 
-This is a cold DM actually :)
+Hi {Founder},
 
-I work around {mention technologies from resume} usually, and also have built Full-stack products. I have shipped {number of products} products from idea to deployment:
+Open with one sentence showing genuine interest in what they're building.
 
-1. {Product Name 1} ({1 line short description})
-2. {Product Name 2} ({1 line short description})
-3. {Product Name 3} ({1 line short description})
+Then connect the candidate's experience to that product. Mention only the most relevant startup/project/work experience. Focus on impact rather than responsibilities.
 
-I also worked at {company name from resume} where I helped build an {product}. Both products were shipped and used by real users. 
+If applicable, mention products shipped, real users, production systems, AI, infrastructure, frontend, backend, etc., but only if relevant.
 
-If you have a {user's target role based on their resume} open, I would like to contribute.
+Close with:
 
-{User's social links from user profile}
+"If you're hiring for a {best matching role}, I'd love to chat and see how I can contribute."
 
-Thanks,
-{User's Name}
+Sign with the candidate's name.
 
+Tone
+
+Write like an engineer talking to another engineer.
+
+Not a recruiter.
+Not ChatGPT.
+Not a cover letter.
+
+The DM should feel handcrafted for this founder.
 `;
 
     const response = await ai.models.generateContent({
