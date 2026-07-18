@@ -2,32 +2,35 @@
 
 ## 1. Architecture & Tech Stack
 - **Framework:** Next.js (App Router)
-- **Styling:** Tailwind CSS + shadcn/ui
-- **Database:** SQLite (local development) / PostgreSQL (production) via Prisma ORM
+- **Styling:** Tailwind CSS v4 + shadcn/ui
+- **Database / Auth:** Firebase (Firestore / Firebase Authentication)
 - **Scraping:** Playwright / Cheerio (Node.js scripts)
-- **State Management:** React hooks + URL search params (for shareable filters)
+- **AI Integration:** @google/genai (Gemini API)
+- **Analytics:** Vercel Analytics
 
-## 2. Database Schema (Prisma)
-- **Company Model:** `id`, `slug`, `name`, `description`, `logoUrl`, `vcBacker` (Enum/String), `industry`, `employees` (Range/String), `location`, `foundedYear`, `stage`, `raised` (String), `amountRaised` (Float), `website`, `twitterUrl`, `linkedinUrl`
-- **Founder Model:** `id`, `companyId`, `name`, `role`, `email`, `phone`, `avatarUrl`, `twitterUrl`, `linkedinUrl`, `bio`
+## 2. Database Schema (Firestore)
+- **Companies Collection:** `id` (slug), `name`, `description`, `logoUrl`, `vcBacker`, `industry`, `employees`, `location`, `foundedYear`, `stage`, `raised`, `amountRaised`, `website`, `twitterUrl`, `linkedinUrl`
+- **Founders Subcollection/Linked Docs:** `companyId`, `name`, `role`, `email`, `phone`, `avatarUrl`, `twitterUrl`, `linkedinUrl`, `bio`
+- **Users Collection:** `uid`, `email`, `resumeText` (or extracted resume details)
 
 ## 3. Implementation Checklist
 
 ### Phase 1: Setup & Database
-- [x] Initialize Prisma and set up SQLite/PostgreSQL database.
-- [x] Define `Company` and `Founder` schema in `schema.prisma`.
-- [x] Generate Prisma client and create a database seed script.
+- [x] Initialize Next.js project with Tailwind v4.
+- [x] Set up Firebase client and admin SDKs.
+- [x] Define Firestore database structure for Companies, Founders, and Users.
 
 ### Phase 2: Scraping Infrastructure
 - [x] Set up a `scripts/scraper` directory.
 - [x] Install scraping dependencies (`playwright`, `cheerio`).
 - [x] Create YCombinator scraper (`yc.ts`).
-- [x] Create a unified script to run all scrapers and insert/upsert data into the database.
+- [x] Create a unified script to run all scrapers and insert/upsert data into Firestore.
 
 ### Phase 3: UI/UX & Layout Setup
-- [x] Add required shadcn components (`npx shadcn@latest add card input select badge button skeleton`).
+- [x] Add required shadcn components.
 - [x] Create a responsive main layout (`src/app/layout.tsx`) with a top navigation bar and theme toggle (Dark/Light mode).
 - [x] Design a cohesive color palette matching modern directories (like grindmap).
+- [x] Add Vercel Analytics to layout.
 
 ### Phase 4: Main Directory Page (Home)
 - [x] **UI Components:**
@@ -35,13 +38,11 @@
   - [x] Filter Sidebar / Topbar (VC Backer, Industry, Employees, Seed Rounds, Raised).
   - [x] Sort Dropdown (A-Z default).
 - [x] **Data Fetching:**
-  - [x] Create a Server Component to fetch companies from the database.
+  - [x] Create components to fetch companies from Firestore.
   - [x] Implement URL parameter-based filtering (e.g., `?vc=YCombinator&industry=tech`).
-  - [x] **Implement Server-Side Pagination (10 items/page):**
-    - Update `src/app/page.tsx` to read a `page` URL search parameter (defaulting to 1).
-    - Modify the `prisma.company.findMany` call in `src/app/page.tsx` to include `take: 10` and `skip: (page - 1) * 10`.
-    - Query `prisma.company.count({ where })` to get the total number of companies and calculate total pages.
-    - Add a Pagination UI control (Previous/Next buttons) below the company grid in `src/app/page.tsx` that links to the respective `?page=N` URL.
+  - [x] **Implement Pagination (10 items/page):**
+    - Query total number of companies and calculate total pages.
+    - Add Pagination UI controls (Previous/Next buttons).
   - [x] Design the UI mimicking Vercel's component library (using shadcn/ui).
   - [x] Support generic mock filters (stage, employees, raised).
 - [x] **Grid Layout:**
@@ -51,50 +52,40 @@
 ## Phase 5: Dynamic Details Page (UI & Data)
 - **Goal:** Display individual company deep-dive page.
 - **Tasks:**
-  - [ ] Create `src/app/company/[slug]/page.tsx`.
-  - [ ] Query `Company` and its related `Founder` records by slug.
-  - [ ] Render all details like social links, cap table, and founder bios.
-  - [ ] Use Next.js Server Components for fast load.
+  - [x] Create `src/app/company/[slug]/page.tsx`.
+  - [x] Query Company and its related Founder records by slug.
+  - [x] Render all details like social links, cap table, and founder bios.
+  - [x] Use Next.js capabilities for fast load.
 
 ## Phase 6: Polish & Performance
 - **Goal:** Finalize the developer-centric, premium experience.
 - **Tasks:**
-  - [ ] Add dark mode toggle (default to dark).
-  - [ ] Add lenis for smooth scrooling.
-  - [ ] Add loading skeletons for the grid and detail pages.
-  - [ ] Generate standard SEO metadata dynamically.
+  - [x] Add dark mode toggle (default to dark).
+  - [x] Add lenis for smooth scrolling.
+  - [x] Add loading skeletons for the grid and detail pages.
+  - [x] Generate standard SEO metadata dynamically.
 
 ## Phase 7: Cold DM Generator Feature
 - **Goal:** Implement a feature to generate a custom cold DM based on user's resume and company/founder's description.
 - **Tasks:**
   - **1. Authentication (Firebase):**
-    - [x] Install and configure Firebase SDK (`firebase` and `firebase-admin`).
+    - [x] Install and configure Firebase SDK.
     - [x] Set up Firebase Auth (Google and/or Email/Password).
-    - [x] Create `/login` page with Firebase sign-in UI.
+    - [x] Create login flow and auth context.
   - **2. Database & User Profile:**
-    - [x] Update `schema.prisma` to include a `User` model (linked by Firebase UID) that stores `resumeText` or extracted resume details.
+    - [x] Update Firestore rules and schema to include a `Users` collection.
     - [x] Create `/profile` page with a resume upload feature.
-    - [x] Install `pdf-parse` or a similar PDF extraction library.
-    - [x] Implement an API route to handle resume upload, extract text using `pdf-parse`, and return the extracted details.
+    - [x] Extract resume text (using an API or pdf-parse) and store it in Firestore.
     - [x] Provide UI in `/profile` for users to verify the extracted text and hit save.
   - **3. UI Updates (Company Page):**
-    - [ ] Add "Send Custom Text" button on the founder cards (`src/app/company/[slug]/page.tsx`).
-    - [ ] Implement UI flow: If user clicks the button, allow them to select a founder.
-    - [ ] **Access Guards:**
-      - [ ] If user is not logged in -> redirect to `/login`.
-      - [ ] If user is logged in but has no resume data -> redirect to `/profile` (or a dedicated upload page).
+    - [x] Add "Send Custom Text" button on the founder cards.
+    - [x] Implement UI flow: If user clicks the button, open a DM generation modal.
+    - [x] **Access Guards:** Redirect to login or profile if not properly configured.
   - **4. Gemini API Integration:**
-    - [ ] Set up an API route (e.g., `src/app/api/generate-dm/route.ts`) to handle Gemini API requests securely on the server.
-    - [ ] Construct a detailed prompt combining: User's resume data + Company description + Selected Founder's details.
+    - [x] Set up an API route (e.g., `src/app/api/generate-dm/route.ts` or server action) to handle Gemini API requests securely on the server.
+    - [x] Construct a detailed prompt combining: User's resume data + Company description + Selected Founder's details.
   - **5. Final User Flow (The Modal/Dialog):**
-    - [ ] Show a loading state while the Gemini API is generating the cold email.
-    - [ ] Display the generated response in an editable text area.
-    - [ ] Add a **"Copy Text"** button (copies to clipboard).
-    - [ ] Add a **"Send to Founder"** button (copies text and prompts user to open the founder's X/LinkedIn profile).
-
-# Expected User Flows
-1. **Initial Load:** User visits `/`. They see a large, premium hero section and a grid of companies.
-2. **Filtering:** User clicks on "YCombinator" in the VC filter. The page instantly updates (using React transitions or Next.js server components) to show only YCombinator companies.
-3. **Searching:** User types "health" in the search bar. The grid filters to companies with "health" in their name or description.
-4. **Details:** User clicks on a company card. They are navigated to `/company/doordash`.
-5. **Deep Dive:** On the detail page, the user can read about the company, see the founders, and click their social links or copy their contact info. They can use the browser back button to return to their preserved filtered state.
+    - [x] Show a loading state while the Gemini API is generating the cold email.
+    - [x] Display the generated response in an editable text area.
+    - [x] Add a **"Copy Text"** button (copies to clipboard).
+    - [x] Add a **"Send to Founder"** button (copies text and prompts user to open the founder's X/LinkedIn profile).
