@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input"
 import { buttonVariants } from "@/components/ui/button"
 import { Search } from "lucide-react"
 import { SubmitCompanyButton } from "@/components/submit-company-button"
+import { KeyboardShortcuts } from "@/components/keyboard-shortcuts"
+
 export default async function Home(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>
 }) {
@@ -189,11 +191,13 @@ export default async function Home(props: {
             <form method="GET" action="/" className="relative w-full sm:max-w-md">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
+                id="search-input"
                 name="q" 
                 placeholder="Search companies..." 
                 defaultValue={q} 
                 className="pl-11 pr-12 h-12 bg-transparent border-border rounded-full focus-visible:ring-1 focus-visible:ring-foreground transition-all text-base placeholder:text-muted-foreground"
               />
+              <KeyboardShortcuts />
               <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center justify-center w-6 h-6 rounded border border-border bg-card text-[10px] text-muted-foreground font-medium">
                 /
               </div>
