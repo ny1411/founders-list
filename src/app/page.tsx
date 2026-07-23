@@ -19,8 +19,6 @@ export default async function Home(props: {
   const pageParam = searchParams?.page as string
   const page = pageParam ? parseInt(pageParam, 10) : 1
   const employees = (searchParams?.employees as string) || "all"
-  const stage = (searchParams?.stage as string) || "all"
-  const raised = (searchParams?.raised as string) || "all"
   const cursor = (searchParams?.cursor as string);
   const direction = (searchParams?.direction as string) || "next";
 
@@ -100,8 +98,6 @@ export default async function Home(props: {
     "Unspecified"
   ]
   const employeeRanges = ["1-10", "11-50", "51-200", "201-500", "501+"]
-  const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"]
-  const raisedAmounts = ["< $1M", "$1M - $5M", "$5M - $20M", "$20M+"]
 
   const buildUrl = (overrides: Record<string, string | number | null>) => {
     const params = new URLSearchParams()
@@ -179,30 +175,6 @@ export default async function Home(props: {
               {employeeRanges.map(e => (
                 <Link key={e} href={buildUrl({ employees: e, page: 1 })} className={`text-sm transition-colors ${employees === e ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
                   {e}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Stage</h3>
-            <div className="flex flex-col gap-2.5">
-              <Link href={buildUrl({ stage: 'all', page: 1 })} className={`text-sm transition-colors ${stage === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>Any Stage</Link>
-              {stages.map(s => (
-                <Link key={s} href={buildUrl({ stage: s, page: 1 })} className={`text-sm transition-colors ${stage === s ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
-                  {s}
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Raised</h3>
-            <div className="flex flex-col gap-2.5">
-              <Link href={buildUrl({ raised: 'all', page: 1 })} className={`text-sm transition-colors ${raised === 'all' ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>Any Amount</Link>
-              {raisedAmounts.map(r => (
-                <Link key={r} href={buildUrl({ raised: r, page: 1 })} className={`text-sm transition-colors ${raised === r ? 'text-foreground font-medium' : 'text-secondary-foreground hover:text-foreground'}`}>
-                  {r}
                 </Link>
               ))}
             </div>
