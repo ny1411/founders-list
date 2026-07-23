@@ -1,6 +1,6 @@
 import { adminDb } from "@/lib/firebase-admin"
 import { Company } from "@/lib/types"
-import type { Query, QueryDocumentSnapshot } from "firebase-admin/firestore"
+import { FieldPath, type Query, type QueryDocumentSnapshot } from "firebase-admin/firestore"
 import Link from "next/link"
 import Image from "next/image"
 import { Card } from "@/components/ui/card"
@@ -21,8 +21,10 @@ export default async function Home(props: {
   const employees = (searchParams?.employees as string) || "all"
   const stage = (searchParams?.stage as string) || "all"
   const raised = (searchParams?.raised as string) || "all"
+  const cursor = (searchParams?.cursor as string);
+  const direction = (searchParams?.direction as string) || "next";
 
-  let companiesQuery: Query = adminDb.collection('companies');
+  let companiesQuery: Query = adminDb.collection("companies");
 
   if (q) {
     // Note: Firestore only supports prefix search for text fields.
@@ -39,18 +41,48 @@ export default async function Home(props: {
   }
 
   // Sort
-  companiesQuery = companiesQuery.orderBy('name', sort === 'asc' ? 'asc' : 'desc');
+  const sortDirection = sort === 'asc' ? 'asc' : 'desc';
 
   const take = 10;
   
-  // Get total count for pagination
+  // Base query separation: Get total count BEFORE applying orderBy
   const countSnapshot = await companiesQuery.count().get();
   const totalCount = countSnapshot.data().count;
   const totalPages = Math.ceil(totalCount / take);
-  const skip = (page - 1) * take;
 
-  const snapshot = await companiesQuery.offset(skip).limit(take).get();
-  const companies: Company[] = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({ id: doc.id, ...doc.data() } as Company));
+  // Apply sorting AFTER count
+  companiesQuery = companiesQuery
+    .orderBy('name', sortDirection)
+    .orderBy(FieldPath.documentId(), sortDirection);
+
+  if (cursor) {
+    try {
+      const [cursorName, cursorId] = JSON.parse(cursor);
+      if (direction === "prev") {
+        companiesQuery = companiesQuery.endBefore(cursorName, cursorId).limitToLast(take);
+      } else {
+        companiesQuery = companiesQuery.startAfter(cursorName, cursorId).limit(take);
+      }
+    } catch (e) {
+      companiesQuery = companiesQuery.limit(take);
+    }
+  } else {
+    companiesQuery = companiesQuery.limit(take);
+  }
+
+  const snapshot = await companiesQuery.get();
+
+  const companies = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+  })) as Company[];
+
+  const firstItemCursor = snapshot.docs.length > 0 
+    ? JSON.stringify([snapshot.docs[0].get("name"), snapshot.docs[0].id])
+    : null;
+  const lastItemCursor = snapshot.docs.length > 0 
+    ? JSON.stringify([snapshot.docs[snapshot.docs.length - 1].get("name"), snapshot.docs[snapshot.docs.length - 1].id])
+    : null;
 
   // Dummy filter arrays (In real app, you might group by from DB)
   const vcs = ["YCombinator"]
@@ -71,7 +103,7 @@ export default async function Home(props: {
   const stages = ["Pre-Seed", "Seed", "Series A", "Series B", "Series C+"]
   const raisedAmounts = ["< $1M", "$1M - $5M", "$5M - $20M", "$20M+"]
 
-  const buildUrl = (overrides: Record<string, string | number>) => {
+  const buildUrl = (overrides: Record<string, string | number | null>) => {
     const params = new URLSearchParams()
     if (q) params.set("q", q)
     if (vc !== "all") params.set("vc", vc)
@@ -81,7 +113,7 @@ export default async function Home(props: {
     if (page > 1) params.set("page", page.toString())
 
     Object.entries(overrides).forEach(([key, value]) => {
-      if (value === "all" || value === 1 || (value === "asc" && key === "sort")) {
+      if (value === "all" || value === 1 || (value === "asc" && key === "sort") || value === null || value === undefined) {
         params.delete(key)
       } else {
         params.set(key, value.toString())
@@ -276,7 +308,7 @@ export default async function Home(props: {
           {totalPages > 1 && (
             <div className="flex items-center justify-center gap-4 mt-8">
               <Link 
-                href={page > 1 ? buildUrl({ page: page - 1 }) : '#'} 
+                href={page > 1 && firstItemCursor ? buildUrl({ page: page - 1, cursor: firstItemCursor, direction: "prev" }) : '#'} 
                 className={buttonVariants({ variant: "outline", className: `rounded-full ${page <= 1 ? 'pointer-events-none opacity-50' : ''}` })}
                 aria-disabled={page <= 1}
               >
@@ -288,7 +320,7 @@ export default async function Home(props: {
               </span>
               
               <Link 
-                href={page < totalPages ? buildUrl({ page: page + 1 }) : '#'} 
+                href={page < totalPages && lastItemCursor ? buildUrl({ page: page + 1, cursor: lastItemCursor, direction: "next" }) : '#'} 
                 className={buttonVariants({ variant: "outline", className: `rounded-full ${page >= totalPages ? 'pointer-events-none opacity-50' : ''}` })}
                 aria-disabled={page >= totalPages}
               >
