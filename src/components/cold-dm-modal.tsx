@@ -11,15 +11,19 @@ interface ColdDmModalProps {
   companySlug: string;
   twitterUrl?: string | null;
   linkedinUrl?: string | null;
+  email?: string | null;
   onClose: () => void;
 }
 
-export function ColdDmModal({ founderId, founderName, companySlug, twitterUrl, linkedinUrl, onClose }: ColdDmModalProps) {
+export function ColdDmModal({ founderId, founderName, companySlug, twitterUrl, linkedinUrl, email, onClose }: ColdDmModalProps) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [dmText, setDmText] = useState('');
   const [copied, setCopied] = useState(false);
+  const [localEmail, setLocalEmail] = useState(email);
+  const [enriching, setEnriching] = useState(false);
+  const [enrichError, setEnrichError] = useState('');
 
   useEffect(() => {
     const generateDm = async () => {
@@ -69,6 +73,46 @@ export function ColdDmModal({ founderId, founderName, companySlug, twitterUrl, l
     }
   };
 
+  const handleEmailClick = async () => {
+    if (localEmail) {
+      handleSend(`mailto:${localEmail}`);
+      return;
+    }
+
+    if (enriching) return;
+
+    // Copy to clipboard synchronously before the async fetch to avoid NotAllowedError
+    handleCopy();
+
+    setEnriching(true);
+    setEnrichError('');
+
+    try {
+      const res = await fetch('/api/enrich-contact', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ founderIds: [founderId] })
+      });
+
+      const data = await res.json();
+      const enrichedEmail = data.founder?.enrichment?.workEmail || data.founder?.enrichment?.personalEmail;
+
+      if (enrichedEmail) {
+        setLocalEmail(enrichedEmail);
+        // Use window.location.href instead of window.open to avoid popup blockers after async operation
+        window.location.href = `mailto:${enrichedEmail}`;
+      } else {
+        setEnrichError("We couldn't find contact information for this founder.");
+      }
+    } catch {
+      setEnrichError("We couldn't find contact information for this founder.");
+    } finally {
+      setEnriching(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
       <div className="bg-card w-full max-w-2xl rounded-2xl shadow-xl border border-border flex flex-col max-h-[90vh]">
@@ -102,6 +146,9 @@ export function ColdDmModal({ founderId, founderName, companySlug, twitterUrl, l
                 value={dmText}
                 onChange={(e) => setDmText(e.target.value)}
               />
+              {enrichError && (
+                <div className="text-red-500 text-sm text-center bg-red-500/10 p-2 rounded-lg">{enrichError}</div>
+              )}
             </>
           )}
         </div>
@@ -134,6 +181,23 @@ export function ColdDmModal({ founderId, founderName, companySlug, twitterUrl, l
                 <ExternalLink className="w-4 h-4" />
               </button>
             )}
+            <button 
+              onClick={handleEmailClick} 
+              disabled={enriching}
+              className={buttonVariants({ variant: "default", className: "gap-2 bg-red-600 hover:bg-red-700 text-white disabled:opacity-50" })}
+            >
+              {enriching ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Finding Email...
+                </>
+              ) : (
+                <>
+                  Send Email
+                  <ExternalLink className="w-4 h-4" />
+                </>
+              )}
+            </button>
             {!twitterUrl && !linkedinUrl && (
               <span className="text-sm text-muted-foreground italic px-2">
                 Social links not available

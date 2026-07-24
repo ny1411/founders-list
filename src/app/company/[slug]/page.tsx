@@ -249,6 +249,7 @@ export default async function CompanyPage(props: { params: Promise<{ slug: strin
                   companySlug={company.slug} 
                   twitterUrl={founder.twitterUrl}
                   linkedinUrl={founder.linkedinUrl}
+                  email={founder.email}
                 />
               </div>
             ))}

@@ -86,7 +86,7 @@ export default async function Home(props: {
       } else {
         companiesQuery = companiesQuery.startAfter(cursorName, cursorId).limit(take);
       }
-    } catch (e) {
+    } catch {
       companiesQuery = companiesQuery.limit(take);
     }
   } else {
